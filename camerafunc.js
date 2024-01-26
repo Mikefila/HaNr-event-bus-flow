@@ -1,5 +1,4 @@
 
-
 // isolate relevant incoming JSON
 var cameraName = msg.payload.event.DeviceName;
 var ivsRule = msg.payload.event.data.Name;
@@ -20,17 +19,16 @@ var cameraTest = (context.get(camera || 10000));
 var aTT = new Date().getTime();
 
 // bounce test  
-
-if (aTT < cameraTest) {
 // if new time is greater than last camera event
+if (aTT < cameraTest) {
     var aTTr = "bounce";
-} else if (action === "Stop") {
 // if end of motion/ivs event message
+} else if (action === "Stop") {
     var aTTr = "Stop";
 } else {
 // if new time is greater than last camera event
     var aTTr = "continue";
-    var aTTd = (aTT + 5000); // add delay in milliseconds
+    var aTTd = (aTT + 7000); // add delay in milliseconds
     context.set(camera, aTTd);
 }
 
@@ -56,12 +54,15 @@ if ((aTTr === "bounce") || (aTTr === "Stop")) {
     const entityType = "camera."; // same as domain with period
 
 
-    // build snapshot text **output 1**
-    // load counters for snapshots
-    let countIvs = context.get("countIvs") || 100;
-    let countMulti = context.get("countMulti") || 100;
-    let countMotion = context.get("countMotion") || 100;
+    // load snapshot count 
+    let countPx = "count_";
+    // build countId for snapshots
+    let countId = countPx + camera;
+    // load current camera count
+    let countCc = context.get(countId) || 100;
 
+    // Build message 1 (msg1)
+    
     // Build entity
     let cameraEntity = entityType + (cameraName.toLowerCase()).replace(/\s/g, "_") + "_main";
     // convert to lowercase  replace spaces with _   add entity type at begining   add _main to end
@@ -74,34 +75,34 @@ if ((aTTr === "bounce") || (aTTr === "Stop")) {
     // rule 1
     if (evco === "CrossRegionDetection" && action === "Start" && ivsRule === "ivs") {
 
-        countIvs += 1;
+        countCc += 1; // if true add 1 to current count
         msg1.payload = {
             "domain": haDom, "service": serv, "data": { "entity_id": cameraEntity },
-            "driveFolder": "single", // storage folder
+            "driveFolder": cameraName, // storage folder
             "title": mtitle,
-            "count": countIvs,
+            "count": countCc,
             "rule": "one", // this is for troubleshooting
         };
         // rule 2
     } else if (evco === "CrossRegionDetection" && action === "Start" && (ivsRule === "first" || ivsRule === "garden" || ivsRule === "alley" || ivsRule === "basement")) {
 
-        countMulti += 1;
+        countCc += 1; // if true add 1 to current count
         msg1.payload = {
             "domain": haDom, "service": serv, "data": { "entity_id": cameraEntity },
-            "driveFolder": "multi", // storage folder
+            "driveFolder": ivsRule, // storage folder
             "title": ivsRule.toUpperCase(),
-            "count": countMulti,
+            "count": countCc,
             "rule": "two", // this is for troubleshooting
         };
         // rule 3
     } else if (evco === "VideoMotion" && action === "Start") {
 
-        countMotion += 1;
+        countCc += 1; // if true add 1 to current count 
         msg1.payload = {
             "domain": haDom, "service": serv, "data": { "entity_id": cameraEntity },
-            "driveFolder": "motion", // storage folder
+            "driveFolder": cameraName, // storage folder
             "title": mtitle,
-            "count": countMotion,
+            "count": countCc,
             "rule": "three", // this is for troubleshooting
         };
 
@@ -109,26 +110,17 @@ if ((aTTr === "bounce") || (aTTr === "Stop")) {
         msg1 = null;
     }
 
-    // reset counters allow 5 snapshots before overwrite
-    if (countIvs >= 105) {
-        countIvs = 100;
+    // reset current counter  allow 10 snapshots before overwrite
+    if (countCc >= 110) {
+        countCc = 100;
     }
 
-    if (countMulti >= 105) {
-        countMulti = 100;
-    }
-
-    if (countMotion >= 105) {
-        countMotion = 100;
-    }
-
-    // store counters
-    context.set("countIvs", countIvs);
-    context.set("countMulti", countMulti);
-    context.set("countMotion", countMotion);
-
+    // store current counter to counter id
+    context.set(countId, countCc);
 
     // build tts message and rules **output 2**
+
+    
     // if on phone, dont send tts 
     if (phoneState === "offhook" || action === "Stop") {
         msg2 = null;
@@ -145,8 +137,6 @@ if ((aTTr === "bounce") || (aTTr === "Stop")) {
         msg3 == null;
     }
 
-
-
 };
 
 // send messages to their outputs
@@ -158,8 +148,3 @@ return [msg1, msg2, msg3];
 // message 3 to output 1
 // message 1 to output 2
 // message 2 to output 3
-
-
-
-
-
