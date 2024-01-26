@@ -9,23 +9,25 @@ var action = msg.payload.event.action;
 // message bounce 
 // create varibles for timestamp context stores
 // create camera variable
-var index = msg.payload.event.index;
-var cameraPx = "camera_";
-var camera = cameraPx + index;
+var index = msg.payload.event.index; // returns camera number
+var cameraPx = "camera_"; 
+var camera = cameraPx + index; // create camera
 
 
 // retrive timer if value does not exist set at 10000
 var cameraTest = (context.get(camera || 10000));
 // create current time in ms
 var aTT = new Date().getTime();
-// bounce test  *how long since the last message of that type
+
+// bounce test  
+// if new time is greater than last camera event
 if (aTT < cameraTest) {
     var aTTr = "bounce";
-    // if end of motion/ivs event message
+// if end of motion/ivs event message
 } else if (action === "Stop") {
     var aTTr = "Stop";
 } else {
-    // if new time is longer than delay
+// if new time is greater than last camera event
     var aTTr = "continue";
     var aTTd = (aTT + 5000); // add delay in milliseconds
     context.set(camera, aTTd);
@@ -41,10 +43,10 @@ let msg3 = {};
 if ((aTTr === "bounce") || (aTTr === "Stop")) {
     msg1 = null;
     msg2 = null;
-    msg3.payload = camera; // output result of bounce test
+    msg3.payload = camera; // output camera # if bounced
 } else {
 // create message if passes
-    // phone state
+    // phone state  ** used to stop tts while on phone  text still recieved
     const phoneState = global.get('homeassistant.homeAssistant.states["sensor.pixel_7_phone_state_2"].state');
 
     // create entity type for service call
