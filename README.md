@@ -13,9 +13,9 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 
 ![Screenshot 2024-01-26 025008](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/985907b3-b5df-4988-80ed-6bd070e30632)
 
-Dauhua cameras allow the naming of ivs rules. These names are sent with the event. The standard intgration lumps all ivs rules from a single camera together. 
+Dahua cameras allow the naming of ivs rules. These names are sent with the event. The Dahua intgration (https://github.com/rroller/dahua) combines all ivs rules from a single camera together. 
 
-In the camera/dvr/nvr/xvr channel settings create new rule and name it.
+In the camera/dvr/nvr/xvr channel settings, create rules and name them. You will use theses names to identify triggers.
 
 ![Screenshot 2024-01-26 133716](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/375e07a0-7ea6-4e02-8cdc-3d0c82aef6df)
 
@@ -28,4 +28,4 @@ When one of the rules are triggered there is the rule name `value` in `payload.e
 
 Using a conditinal statement (see rule 2 in camerafunc.js) allows us to target specific keywords found in the event data.
 
-Dahua cameras offer a lot more information in the event data. Target location and direction of travel among other things. Sample JSON included in flow file.
+Dahua cameras offer other information in the event data. Target location and direction of travel among other things. Sample JSON included in flow file.
