@@ -8,7 +8,7 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 4. Creates payload for text including snapshot file location.
 5. Creates payload for separate tts message.
 6. Bounces duplicate messages.
-7. Rate limit by type.
+7. Rate limit by camera number.
 8. Retrieve  phone state, bounce tts message if on phone.
 9. Create multiple zone triggers per camera. (See below)
 
