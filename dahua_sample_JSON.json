@@ -1,0 +1,83 @@
+{
+    "event_type": "dahua_event_received",
+    "event": {
+        "Code": "CrossRegionDetection",
+        "action": "Start",
+        "index": "2",
+        "data": {
+            "Action": "Cross",
+            "Class": "Normal",
+            "CountInGroup": 1,
+            "DetectRegion": [
+                [
+                    2293,
+                    6198
+                ],
+                [
+                    3986,
+                    6222
+                ],
+                [
+                    3568,
+                    7972
+                ],
+                [
+                    2658,
+                    8069
+                ],
+                [
+                    1893,
+                    6660
+                ],
+                [
+                    2293,
+                    6344
+                ]
+            ],
+            "Direction": "Leave",
+            "EventSeq": 10,
+            "FrameSequence": 2419240,
+            "GroupID": 0,
+            "IndexInGroup": 0,
+            "Mark": 0,
+            "Name": "first",
+            "Object": {
+                "Action": "Appear",
+                "BoundingBox": [
+                    2944,
+                    3864,
+                    4992,
+                    7960
+                ],
+                "Center": [
+                    3968,
+                    5912
+                ],
+                "Confidence": 0,
+                "FrameSequence": 0,
+                "ObjectID": 35,
+                "ObjectType": "Unknown",
+                "RelativeID": 0,
+                "Source": 0,
+                "Speed": 0,
+                "SpeedTypeInternal": 0
+            },
+            "PTS": 48461,
+            "RuleId": 2,
+            "Sequence": 0,
+            "Source": 0,
+            "Track": null,
+            "UTC": 1705948113,
+            "UTCMS": 0
+        },
+        "name": "XVR first floor",
+        "DeviceName": "XVR first floor"
+    },
+    "origin": "LOCAL",
+    "time_fired": "2024-01-22T23:28:35.553034+00:00",
+    "context": {
+        "id": "01HMSR26Q1RR5FPACJ8A30RQES",
+        "parent_id": null,
+        "user_id": null
+    }
+}
