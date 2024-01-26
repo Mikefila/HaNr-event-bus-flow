@@ -20,11 +20,12 @@ var cameraTest = (context.get(camera || 10000));
 var aTT = new Date().getTime();
 
 // bounce test  
-// if new time is greater than last camera event
+
 if (aTT < cameraTest) {
+// if new time is greater than last camera event
     var aTTr = "bounce";
-// if end of motion/ivs event message
 } else if (action === "Stop") {
+// if end of motion/ivs event message
     var aTTr = "Stop";
 } else {
 // if new time is greater than last camera event
