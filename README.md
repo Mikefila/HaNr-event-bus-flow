@@ -15,7 +15,7 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 
 Dauhua cameras allow the naming of ivs rules. These names are sent with the event. The standard intgration lumps all ivs rules from a single camera together. 
 
-In the camera/dvr/nvr/xvr chsnnel settings create new rule and name it.
+In the camera/dvr/nvr/xvr channel settings create new rule and name it.
 
 ![Screenshot 2024-01-26 133716](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/375e07a0-7ea6-4e02-8cdc-3d0c82aef6df)
 
