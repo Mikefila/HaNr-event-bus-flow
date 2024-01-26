@@ -6,29 +6,20 @@ var ivsRule = msg.payload.event.data.Name;
 var evco = msg.payload.event.Code;
 var action = msg.payload.event.action;
 
-
 // message bounce 
 // create varibles for timestamp context stores
-// create actionType variable
-var actionType = action;
+// create camera variable
+var index = msg.payload.event.index;
+var cameraPx = "camera_";
+var camera = cameraPx + index;
 
-// modify it
-if (evco === "CrossRegionDetection" && ivsRule === "ivs") {
-    actionType = "single";
-} else if (evco === "CrossRegionDetection" && (ivsRule === "first" || ivsRule === "garden" || ivsRule === "alley" || ivsRule === "basement")) {
-    actionType = ivsRule;
-} else if (evco === "VideoMotion") {
-    actionType = "motion";
-} else {
-    actionType = "rando";
-};
 
-// retrive timer if value does not exist set at 1000
-var actionTypeTest = (context.get(actionType || 10000));
+// retrive timer if value does not exist set at 10000
+var cameraTest = (context.get(camera || 10000));
 // create current time in ms
 var aTT = new Date().getTime();
 // bounce test  *how long since the last message of that type
-if (aTT < actionTypeTest) {
+if (aTT < cameraTest) {
     var aTTr = "bounce";
     // if end of motion/ivs event message
 } else if (action === "Stop") {
@@ -36,8 +27,8 @@ if (aTT < actionTypeTest) {
 } else {
     // if new time is longer than delay
     var aTTr = "continue";
-    var aTTd = (aTT + 5000); // delay in milliseconds
-    context.set(actionType, aTTd);
+    var aTTd = (aTT + 5000); // add delay in milliseconds
+    context.set(camera, aTTd);
 }
 
 // create empty message objects
@@ -50,9 +41,9 @@ let msg3 = {};
 if ((aTTr === "bounce") || (aTTr === "Stop")) {
     msg1 = null;
     msg2 = null;
-    msg3.payload = aTTr; // output result of bounce test
+    msg3.payload = camera; // output result of bounce test
 } else {
-    // create message if passes
+// create message if passes
     // phone state
     const phoneState = global.get('homeassistant.homeAssistant.states["sensor.pixel_7_phone_state_2"].state');
 
@@ -159,8 +150,8 @@ if ((aTTr === "bounce") || (aTTr === "Stop")) {
 return [msg1, msg2, msg3];
 
 // **msg numbers do not relate to where they go
-// only the message itself
-// return [msg3, msg1, msg2]
+// only the message itself 
+// return [msg3, msg1, msg2] 
 // message 3 to output 1
 // message 1 to output 2
 // message 2 to output 3
