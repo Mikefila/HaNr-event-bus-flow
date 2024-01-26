@@ -9,7 +9,7 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 5. Creates payload for separate tts message.
 6. Bounces duplicate messages.
 7. Rate limit by type.
-8. Retreive phone state, bounce tts message if on phone.
+8. Retrieve  phone state, bounce tts message if on phone.
 9. Create multiple zone triggers per camera. (See below)
 
 ![Screenshot 2024-01-26 025008](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/985907b3-b5df-4988-80ed-6bd070e30632)
