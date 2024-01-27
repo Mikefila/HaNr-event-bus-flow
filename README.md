@@ -4,7 +4,7 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 
 1. Creates payload for snapshot call.
 2. Numbers snapshot (allows multiple snapshots per message type before rewrite).
-3. Stores snapshot in different folders according to event type.
+3. Stores snapshot in different folders according to trigger type.
 4. Creates payload for text including snapshot file location.
 5. Creates payload for separate tts message.
 6. Bounces duplicate messages.
@@ -29,4 +29,7 @@ When one of the rules are triggered there is the rule name `value` in `payload.e
 
 Using a conditinal statement (see rule 2 in camerafunc.js) allows us to target specific keywords found in the event data.
 
-Dahua cameras offer other information in the event data. Target location and direction of travel among other things. Sample JSON included in flow file.
+Dahua cameras offer other information in the event data. Target location and direction of travel among other things. Multiple sample JSON included in flow file.
+
+
+![Screenshot 2024-01-26 190100](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/34e9947a-845f-42c6-9ff6-9af62be333d0)
