@@ -3,14 +3,15 @@
 This flow listens for `dahua_event_recived`. The funcion node manipulates event data:
 
 1. Creates payload for snapshot call.
-2. Numbers snapshot (allows multiple snapshots per message type before rewrite).
-3. Stores snapshot in different folders according to trigger type.
-4. Creates payload for text including snapshot file location.
-5. Creates payload for separate tts message.
-6. Bounces duplicate messages.
-7. Rate limit by camera number.
-8. Retrieve  phone state, bounce tts message if on phone.
-9. Create multiple zone triggers per camera. (See below)
+2. Covers all supported event types. [see here](https://github.com/rroller/dahua?tab=readme-ov-file#example-code-events)
+3. Numbers snapshot (allows multiple snapshots per message type before rewrite).
+4. Stores snapshot in different folders according to trigger type.
+5. Creates payload for text including snapshot file location.
+6. Creates payload for separate tts message.
+7. Bounces duplicate and stop messages.
+8. Rate limit by event and camera number.
+9. Retrieve  phone state, bounce tts message if on phone.
+10. Create multiple zone triggers per camera. (See below)
 
 ![Screenshot 2024-01-26 025008](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/985907b3-b5df-4988-80ed-6bd070e30632)
 
