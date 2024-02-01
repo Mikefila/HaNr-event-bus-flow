@@ -28,7 +28,7 @@ If you turn on show ivs rule in Dahua's smart pss app. (https://dahuawiki.com/Sm
 
 When one of the rules are triggered there is the rule name `value` in `payload.event.data.Name`.
 
-Using a conditinal statement (see rule 2 in camerafunc.js) allows us to target specific keywords found in the event data.
+Using a conditinal statement (see rule 1 in camerafunc.js) allows us to target specific keywords found in the event data.
 
 Dahua cameras offer other information in the event data. Target location and direction of travel among other things. Multiple sample JSON included in flow file.
 
