@@ -1,10 +1,18 @@
 
 // isolate relevant incoming JSON
-this.cameraName = msg.payload.event.DeviceName;
-const ivsRule = msg.payload.event.data.Name;
-const evco = msg.payload.event.Code;
-const action = msg.payload.event.action;
-const index = msg.payload.event.index;
+try {
+    var cameraName = msg.payload.event.DeviceName;
+    var ivsRule = msg.payload.event.data.Name;
+    var evco = msg.payload.event.Code;
+    var action = msg.payload.event.action;
+    var index = msg.payload.event.index;
+} catch {
+    var cameraName = undefined;
+    var ivsRule = undefined;
+    var evco = undefined;
+    var action = undefined;
+    var index = undefined;
+}
 
 // dahua events
 const validEvents = {
@@ -35,11 +43,11 @@ const eventType = (Object.keys(validEvents));
 // create varibles for timestamp context stores
 // create camera variable
 const cameraPx = "camera_"; 
-this.camera = cameraPx + index; // create camera
+var camera = cameraPx + index + evco + ivsRule; // create camera
 
 
 // retrive timer if value does not exist set at 10000
-var cameraTest = (context.get(this.camera || 10000));
+var cameraTest = (context.get(camera || 10000));
 // create current time in ms
 var aTT = new Date().getTime();
 
@@ -56,7 +64,7 @@ if (aTT < cameraTest) {
 // if new time is greater than last camera event
 } else {
     var aTTr = "continue";
-    var aTTd = (aTT + 7000); // add delay in milliseconds
+    var aTTd = (aTT + 15000); // add delay in milliseconds
     context.set(camera, aTTd);
 }
 
@@ -93,7 +101,7 @@ if (aTTr === "bounce") {
     // load snapshot count 
     var countPx = "count_";
     // build countId for snapshots
-    var countId = countPx + camera + evco;
+    var countId = countPx + camera;
     // load current camera count
     var countCc = context.get(countId) || 100;
 
@@ -111,7 +119,7 @@ if (aTTr === "bounce") {
     // resolves event code for message text
     var mEvent = validEvents[evco];
 
-    var mText = cameraName;
+    var mText = cameraName.replace(/XVR /, "");
 
     var mRule = "set";
 
@@ -163,10 +171,10 @@ if (aTTr === "bounce") {
     // if on phone, dont send tts 
     if (phoneState === "offhook" || action === "Stop") {
         msg2 = null;
+    } else if (evco === "LeftDetection") {
+        msg2.payload = "Something is at the mailbox";
     } else if (ivsRule === "ivs" || evco === "VideoMotion") {
         msg2.payload = ((cameraName.toLowerCase()).replace(/xvr /, "")).replace(/ floor/, "");
-    } else if (evco === "LeftDetection"){
-        msg2.payload = "Something is at the mailbox"
     } else {
         msg2.payload = ivsRule;
     }
@@ -178,13 +186,16 @@ if (aTTr === "bounce") {
 
 };
 
-// send messages to their outputs
-return [msg1, msg2, msg3];
+var countOutput = (context.get('countOutput' || 1));
 
-// **msg numbers do not relate to where they go
-// only the message itself 
-// return [msg3, msg1, msg2] 
-// message 3 to output 1
-// message 1 to output 2
-// message 2 to output 3
+if (countOutput == 1) {
+    countOutput = 2;
+    context.set("countOutput", countOutput);
+    return [msg1, null, msg2, msg3];
+    } else {
+    countOutput = 1;
+    context.set("countOutput", countOutput);
+    return [null, msg1, msg2, msg3];
+}
+
 
