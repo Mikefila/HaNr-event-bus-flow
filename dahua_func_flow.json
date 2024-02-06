@@ -1,1 +1,438 @@
-[{"id":"082e161d16ef429f","type":"function","z":"60f2d2277843c698","name":"Camera message system","func":"\n// isolate relevant incoming JSON\nthis.cameraName = msg.payload.event.DeviceName;\nconst ivsRule = msg.payload.event.data.Name;\nconst evco = msg.payload.event.Code;\nconst action = msg.payload.event.action;\nconst index = msg.payload.event.index;\n\n// dahua events\nconst validEvents = {\n    VideoMotion: \"motion detection\",\n    VideoLoss: \"video loss detection\",\n    VideoBlind: \"video blind detection\",\n    AlarmLocal: \"alarm detection\",\n    CrossLineDetection: \"tripwire\",\n    CrossRegionDetection: \"intrusion\",\n    LeftDetection: \"abandoned object detection\",\n    TakenAwayDetection: \"missing object detection\",\n    VideoAbnormalDetection: \"scene change\",\n    FaceDetection: \"face detect\",\n    AudioMutation: \"intensity change\",\n    AudioAnomaly: \"input abnormal\",\n    VideoUnFocus: \"defocus detect\",\n    WanderDetection: \"loitering detection\",\n    RioterDetection: \"People Gathering\",\n    ParkingDetection: \"parking detection\",\n    MoveDetection: \"fast moving\",\n    HeatImagingTemper: \"temperature alarm\"\n};\n// list of available incoming event codes\nconst eventType = (Object.keys(validEvents));\n\n// message bounce \n\n// create varibles for timestamp context stores\n// create camera variable\nconst cameraPx = \"camera_\"; \nthis.camera = cameraPx + index; // create camera\n\n\n// retrive timer if value does not exist set at 10000\nvar cameraTest = (context.get(this.camera || 10000));\n// create current time in ms\nvar aTT = new Date().getTime();\n\n// bounce test  \n// if new time is greater than last camera event\nif (aTT < cameraTest) {\n    var aTTr = \"bounce\";\n// if end of motion/ivs event message\n} else if (action === \"Stop\") {\n    var aTTr = \"Stop\";\n// event is not supported\n} else if (eventType.indexOf(evco) === -1) {\n    var attr = \"event not upported\";\n// if new time is greater than last camera event\n} else {\n    var aTTr = \"continue\";\n    var aTTd = (aTT + 7000); // add delay in milliseconds\n    context.set(camera, aTTd);\n}\n\n// create empty message objects\nvar msg1 = {};\nvar msg2 = {};\nvar msg3 = {};\n\n\n// create message if bounced output 3\nif (aTTr === \"bounce\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr; // output camera # if bounced\n} else if (aTTr === \"Stop\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr;\n} else if (aTTr === \"event not supported\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = evco + \" \" + aTTr;\n} else { \n// create message if passes\n    // phone state  ** used to stop tts while on phone  text still sent\n    const phoneState = global.get('homeassistant.homeAssistant.states[\"sensor.pixel_7_phone_state_2\"].state');\n\n    // create entity type for service call\n    const haDom = \"camera\";  // domain\n    const serv = \"snapshot\"; // service\n    const entityType = \"camera.\"; // same as domain with period\n    // Dauha events\n\n    // load snapshot count \n    var countPx = \"count_\";\n    // build countId for snapshots\n    var countId = countPx + camera + evco;\n    // load current camera count\n    var countCc = context.get(countId) || 100;\n\n    // Build message 1 (msg1)\n\n    // Build entity\n    var cameraEntity = entityType + (cameraName.toLowerCase()).replace(/\\s/g, \"_\") + \"_main\";\n    // convert to lowercase  replace spaces with _   add entity type at begining   add _main to end\n\n    // Text for title and message\n    var mTitle = ((cameraName.toUpperCase()).replace(/XVR /, \"\")).replace(/ FLOOR/, \"\");\n    // convert to upper case  remove XVR and white space from beginning  remove whitespace and FLOOR from end\n    // when present in title\n\n    // resolves event code for message text\n    var mEvent = validEvents[evco];\n\n    var mText = cameraName;\n\n    var mRule = \"set\";\n\n\n\n\n    // rule 1\n    if (evco === \"CrossRegionDetection\" && (ivsRule === \"first\" || ivsRule === \"garden\" || ivsRule === \"alley\" || ivsRule === \"basement\")) {\n        countCc += 1; // if true add 1 to current count\n        cameraName = ivsRule; // storage folder\n        mTitle = ivsRule.toUpperCase();\n        mRule = \"Rule one\";\n        msg3.payload = mRule;\n\n        // rule else\n    } else {\n        countCc += 1; // if true add 1 to current count \n        mRule = \"Rule else\";\n        msg3.payload = \"else\";\n\n    };\n\n    // message structure\n    msg1.payload = {\n        \"domain\": haDom,\n        \"service\": serv,\n        \"target\": {\n            \"entity_id\": cameraEntity\n        },\n        \"driveFolder\": cameraName, //.replace(/\\s/g, \"_\"), // storage folder\n        \"title\": mTitle,\n        \"event\": mEvent,\n        \"message\": mText,\n        \"count\": countCc,\n        \"rule\": mRule, // this is for troubleshooting\n    };\n\n    // reset current counter  allow 10 snapshots before overwrite\n    if (countCc >= 110) {\n        countCc = 100;\n    }\n\n    // store current counter to counter id\n    context.set(countId, countCc);\n\n    // build tts message and rules **output 2**\n\n\n    // if on phone, dont send tts \n    if (phoneState === \"offhook\" || action === \"Stop\") {\n        msg2 = null;\n    } else if (ivsRule === \"ivs\" || evco === \"VideoMotion\") {\n        msg2.payload = ((cameraName.toLowerCase()).replace(/xvr /, \"\")).replace(/ floor/, \"\");\n    } else if (evco === \"LeftDetection\"){\n        msg2.payload = \"Something is at the mailbox\"\n    } else {\n        msg2.payload = ivsRule;\n    }\n\n    //catch all if text output is null do nothing\n    if (msg1 == null) {\n        msg2 == null;\n    }\n\n};\n\n// send messages to their outputs\nreturn [msg1, msg2, msg3];\n\n// **msg numbers do not relate to where they go\n// only the message itself \n// return [msg3, msg1, msg2] \n// message 3 to output 1\n// message 1 to output 2\n// message 2 to output 3\n\n","outputs":3,"timeout":0,"noerr":0,"initialize":"","finalize":"","libs":[],"x":840,"y":380,"wires":[["c406c2624cc4e6db","66d916ef76787ca0"],["77cce41f3936b0c9","f34d32f6fc433e15"],["7ba4e85a8f86d1d2"]]},{"id":"7841ff42ab3da737","type":"inject","z":"60f2d2277843c698","name":"second (rule 1)","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"3\",\"data\":{\"Action\":\"Appear\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[4168,3111],[4405,7778],[5916,7510],[5388,3160]],\"EventSeq\":26,\"FrameSequence\":2419837,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"ivs\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[3752,2840,5112,4664],\"Center\":[4432,3752],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":176,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":58592,\"RuleId\":1,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948123,\"UTCMS\":0},\"name\":\"XVR second floor\",\"DeviceName\":\"XVR second floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:45.514691+00:00\",\"context\":{\"id\":\"01HMSR2GEAFBBXNWHDVCK556PJ\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":560,"y":380,"wires":[["082e161d16ef429f"]]},{"id":"bc3369746dc22f61","type":"inject","z":"60f2d2277843c698","name":"basement (rule 2)","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"2\",\"data\":{\"Action\":\"Appear\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[5697,7792],[7827,6965],[7954,6187],[5952,7184]],\"EventSeq\":5,\"FrameSequence\":2418608,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"basement\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[6312,6024,6984,7272],\"Center\":[6648,6648],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":33,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":37761,\"RuleId\":1,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948103,\"UTCMS\":0},\"name\":\"XVR first floor\",\"DeviceName\":\"XVR first floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:24.743001+00:00\",\"context\":{\"id\":\"01HMSR1W57T75MKGFXS2J1A8GM\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":550,"y":440,"wires":[["082e161d16ef429f"]]},{"id":"4814dfb3a875c322","type":"inject","z":"60f2d2277843c698","name":"first (rule 2)","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"2\",\"data\":{\"Action\":\"Cross\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[2293,6198],[3986,6222],[3568,7972],[2658,8069],[1893,6660],[2293,6344]],\"Direction\":\"Leave\",\"EventSeq\":10,\"FrameSequence\":2419240,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"first\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[2944,3864,4992,7960],\"Center\":[3968,5912],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":35,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":48461,\"RuleId\":2,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948113,\"UTCMS\":0},\"name\":\"XVR first floor\",\"DeviceName\":\"XVR first floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:35.553034+00:00\",\"context\":{\"id\":\"01HMSR26Q1RR5FPACJ8A30RQES\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":570,"y":500,"wires":[["082e161d16ef429f"]]},{"id":"e4eedb3ea1392aea","type":"inject","z":"60f2d2277843c698","name":"motion start (rule 3)","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"VideoMotion\",\"action\":\"Start\",\"index\":\"15\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR front step\",\"DeviceName\":\"XVR front step\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:24:13.506340+00:00\",\"context\":{\"id\":\"01HMSQT6T2NSYRJGYGYFVE2K5Q\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":550,"y":560,"wires":[["082e161d16ef429f"]]},{"id":"334c139fc2bbd57b","type":"inject","z":"60f2d2277843c698","name":"should return null","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"Videootion\",\"action\":\"Stop\",\"index\":\"3\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR second floor\",\"DeviceName\":\"XVR second floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:24:13.969622+00:00\",\"context\":{\"id\":\"01HMSQT78HSZHSW6Y2HY3PXDW6\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":560,"y":620,"wires":[["082e161d16ef429f"]]},{"id":"bc7d0a355d3162f4","type":"inject","z":"60f2d2277843c698","name":"mailbox","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"VideoMotion\",\"action\":\"Start\",\"index\":\"1\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR mailbox\",\"DeviceName\":\"XVR mailbox\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-26T20:09:17.318697+00:00\",\"context\":{\"id\":\"01HN3P84R69B5F8JZ7XHXAKG0N\",\"parent_id\":null,\"user_id\":null}}","payloadType":"json","x":590,"y":680,"wires":[["082e161d16ef429f"]]},{"id":"4591a6edf8fed28c","type":"api-call-service","z":"60f2d2277843c698","name":"send pic text","server":"6b1110b5.183a4","version":5,"debugenabled":false,"domain":"notify","service":"mobile_app_pixel_7","areaId":[],"deviceId":[],"entityId":[],"data":"{\t   \"title\": msg.title,\t   \"message\": msg.event & \" on \" & msg.message,\t   \"data\":{\t       \"image\":\"/media/local/camera/\" & msg.driveFolder & \"/snap\" & msg.count & \".jpg\",\t       \"clickAction\":\"/lovelace-test/markdown\",\t       \"ttl\":0,\t       \"priority\":\"high\"\t   }\t}","dataType":"jsonata","mergeContext":"","mustacheAltTags":false,"outputProperties":[],"queue":"none","x":1300,"y":320,"wires":[[]]},{"id":"c406c2624cc4e6db","type":"api-call-service","z":"60f2d2277843c698","name":"take snapshot","server":"6b1110b5.183a4","version":5,"debugenabled":false,"domain":"","service":"","areaId":[],"deviceId":[],"entityId":[],"data":"{\"filename\":\"/media/camera/{{payload.driveFolder}}/snap{{payload.count}}.jpg\"}","dataType":"json","mergeContext":"","mustacheAltTags":false,"outputProperties":[{"property":"title","propertyType":"msg","value":"payload.title","valueType":"msg"},{"property":"driveFolder","propertyType":"msg","value":"payload.driveFolder","valueType":"msg"},{"property":"count","propertyType":"msg","value":"payload.count","valueType":"msg"},{"property":"event","propertyType":"msg","value":"payload.event","valueType":"msg"},{"property":"message","propertyType":"msg","value":"payload.message","valueType":"msg"},{"property":"payload","propertyType":"msg","value":"","valueType":"data"}],"queue":"none","x":1080,"y":320,"wires":[["4591a6edf8fed28c","cf92a28878565b83"]]},{"id":"77cce41f3936b0c9","type":"api-call-service","z":"60f2d2277843c698","name":"send tts text","server":"6b1110b5.183a4","version":5,"debugenabled":false,"domain":"notify","service":"mobile_app_pixel_7","areaId":[],"deviceId":[],"entityId":[],"data":"{\"message\":\"TTS\",\"data\":{\"tts_text\":\"{{payload}}\",\"ttl\":0,\"priority\":\"high\"}}","dataType":"json","mergeContext":"","mustacheAltTags":false,"outputProperties":[],"queue":"none","x":1070,"y":380,"wires":[[]]},{"id":"66d916ef76787ca0","type":"debug","z":"60f2d2277843c698","name":"snapshot text","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1080,"y":280,"wires":[]},{"id":"cf92a28878565b83","type":"debug","z":"60f2d2277843c698","name":"pic message","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1290,"y":280,"wires":[]},{"id":"f34d32f6fc433e15","type":"debug","z":"60f2d2277843c698","name":"tts","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1050,"y":440,"wires":[]},{"id":"7ba4e85a8f86d1d2","type":"debug","z":"60f2d2277843c698","name":"bounced","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"payload","targetType":"msg","statusVal":"","statusType":"auto","x":1060,"y":480,"wires":[]},{"id":"6b1110b5.183a4","type":"server","name":"Home Assistant","version":5,"addon":true,"rejectUnauthorizedCerts":true,"ha_boolean":"y|yes|true|on|home|open","connectionDelay":true,"cacheJson":false,"heartbeat":false,"heartbeatInterval":"30","areaSelector":"friendlyName","deviceSelector":"friendlyName","entitySelector":"friendlyName","statusSeparator":"at: ","statusYear":"hidden","statusMonth":"short","statusDay":"numeric","statusHourCycle":"h23","statusTimeFormat":"h:m","enableGlobalContextStore":true}]
+[
+    {
+        "id": "7841ff42ab3da737",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "second (rule 1)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"3\",\"data\":{\"Action\":\"Appear\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[4168,3111],[4405,7778],[5916,7510],[5388,3160]],\"EventSeq\":26,\"FrameSequence\":2419837,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"ivs\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[3752,2840,5112,4664],\"Center\":[4432,3752],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":176,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":58592,\"RuleId\":1,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948123,\"UTCMS\":0},\"name\":\"XVR second floor\",\"DeviceName\":\"XVR second floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:45.514691+00:00\",\"context\":{\"id\":\"01HMSR2GEAFBBXNWHDVCK556PJ\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 200,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "bc3369746dc22f61",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "basement (rule 2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"2\",\"data\":{\"Action\":\"Appear\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[5697,7792],[7827,6965],[7954,6187],[5952,7184]],\"EventSeq\":5,\"FrameSequence\":2418608,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"basement\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[6312,6024,6984,7272],\"Center\":[6648,6648],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":33,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":37761,\"RuleId\":1,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948103,\"UTCMS\":0},\"name\":\"XVR first floor\",\"DeviceName\":\"XVR first floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:24.743001+00:00\",\"context\":{\"id\":\"01HMSR1W57T75MKGFXS2J1A8GM\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "4814dfb3a875c322",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "first (rule 2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"CrossRegionDetection\",\"action\":\"Start\",\"index\":\"2\",\"data\":{\"Action\":\"Cross\",\"Class\":\"Normal\",\"CountInGroup\":1,\"DetectRegion\":[[2293,6198],[3986,6222],[3568,7972],[2658,8069],[1893,6660],[2293,6344]],\"Direction\":\"Leave\",\"EventSeq\":10,\"FrameSequence\":2419240,\"GroupID\":0,\"IndexInGroup\":0,\"Mark\":0,\"Name\":\"first\",\"Object\":{\"Action\":\"Appear\",\"BoundingBox\":[2944,3864,4992,7960],\"Center\":[3968,5912],\"Confidence\":0,\"FrameSequence\":0,\"ObjectID\":35,\"ObjectType\":\"Unknown\",\"RelativeID\":0,\"Source\":0,\"Speed\":0,\"SpeedTypeInternal\":0},\"PTS\":48461,\"RuleId\":2,\"Sequence\":0,\"Source\":0,\"Track\":null,\"UTC\":1705948113,\"UTCMS\":0},\"name\":\"XVR first floor\",\"DeviceName\":\"XVR first floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:28:35.553034+00:00\",\"context\":{\"id\":\"01HMSR26Q1RR5FPACJ8A30RQES\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 320,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "e4eedb3ea1392aea",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "motion start (rule 3)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"VideoMotion\",\"action\":\"Start\",\"index\":\"15\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR front step\",\"DeviceName\":\"XVR front step\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:24:13.506340+00:00\",\"context\":{\"id\":\"01HMSQT6T2NSYRJGYGYFVE2K5Q\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 380,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "334c139fc2bbd57b",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "should return null",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"Videootion\",\"action\":\"Stop\",\"index\":\"3\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR second floor\",\"DeviceName\":\"XVR second floor\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-22T23:24:13.969622+00:00\",\"context\":{\"id\":\"01HMSQT78HSZHSW6Y2HY3PXDW6\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 440,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "bc7d0a355d3162f4",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "mailbox",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"event_type\":\"dahua_event_received\",\"event\":{\"Code\":\"VideoMotion\",\"action\":\"Start\",\"index\":\"1\",\"data\":{\"SmartMotionEnable\":false},\"name\":\"XVR mailbox\",\"DeviceName\":\"XVR mailbox\"},\"origin\":\"LOCAL\",\"time_fired\":\"2024-01-26T20:09:17.318697+00:00\",\"context\":{\"id\":\"01HN3P84R69B5F8JZ7XHXAKG0N\",\"parent_id\":null,\"user_id\":null}}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 500,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "4591a6edf8fed28c",
+        "type": "api-call-service",
+        "z": "60f2d2277843c698",
+        "name": "send pic text",
+        "server": "6b1110b5.183a4",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "notify",
+        "service": "mobile_app_pixel_7",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\t   \"title\": msg.title,\t   \"message\": msg.event & \" on \" & msg.message,\t   \"data\":{\t       \"image\":\"/media/local/camera/\" & msg.driveFolder & \"/snap\" & msg.count & \".jpg\",\t       \"clickAction\":\"/lovelace-test/markdown\",\t       \"ttl\":0,\t       \"priority\":\"high\"\t   }\t}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "x": 990,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c406c2624cc4e6db",
+        "type": "api-call-service",
+        "z": "60f2d2277843c698",
+        "name": "take snapshot",
+        "server": "6b1110b5.183a4",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "",
+        "service": "",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"filename\":\"/media/camera/{{payload.driveFolder}}/snap{{payload.count}}.jpg\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [
+            {
+                "property": "title",
+                "propertyType": "msg",
+                "value": "payload.title",
+                "valueType": "msg"
+            },
+            {
+                "property": "driveFolder",
+                "propertyType": "msg",
+                "value": "payload.driveFolder",
+                "valueType": "msg"
+            },
+            {
+                "property": "count",
+                "propertyType": "msg",
+                "value": "payload.count",
+                "valueType": "msg"
+            },
+            {
+                "property": "event",
+                "propertyType": "msg",
+                "value": "payload.event",
+                "valueType": "msg"
+            },
+            {
+                "property": "message",
+                "propertyType": "msg",
+                "value": "payload.message",
+                "valueType": "msg"
+            },
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "data"
+            }
+        ],
+        "queue": "none",
+        "x": 720,
+        "y": 100,
+        "wires": [
+            [
+                "4591a6edf8fed28c"
+            ]
+        ]
+    },
+    {
+        "id": "77cce41f3936b0c9",
+        "type": "api-call-service",
+        "z": "60f2d2277843c698",
+        "name": "send tts text",
+        "server": "6b1110b5.183a4",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "notify",
+        "service": "mobile_app_pixel_7",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"message\":\"TTS\",\"data\":{\"tts_text\":\"{{payload}}\",\"ttl\":0,\"priority\":\"high\"}}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "x": 710,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "60e519a6e6fa396c",
+        "type": "server-events",
+        "z": "60f2d2277843c698",
+        "name": "",
+        "server": "6b1110b5.183a4",
+        "version": 3,
+        "exposeAsEntityConfig": "",
+        "eventType": "dahua_event_received",
+        "eventData": "",
+        "waitForRunning": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "eventData"
+            },
+            {
+                "property": "topic",
+                "propertyType": "msg",
+                "value": "$outputData(\"eventData\").event_type",
+                "valueType": "jsonata"
+            }
+        ],
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
+            ]
+        ]
+    },
+    {
+        "id": "45e572d1d77a0cf4",
+        "type": "function",
+        "z": "60f2d2277843c698",
+        "name": "Camera message system",
+        "func": "\n// isolate relevant incoming JSON\ntry {\n    var cameraName = msg.payload.event.DeviceName;\n    var ivsRule = msg.payload.event.data.Name;\n    var evco = msg.payload.event.Code;\n    var action = msg.payload.event.action;\n    var index = msg.payload.event.index;\n} catch {\n    var cameraName = undefined;\n    var ivsRule = undefined;\n    var evco = undefined;\n    var action = undefined;\n    var index = undefined;\n}\n\n// dahua events\nconst validEvents = {\n    VideoMotion: \"motion detection\",\n    VideoLoss: \"video loss detection\",\n    VideoBlind: \"video blind detection\",\n    AlarmLocal: \"alarm detection\",\n    CrossLineDetection: \"tripwire\",\n    CrossRegionDetection: \"intrusion\",\n    LeftDetection: \"abandoned object detection\",\n    TakenAwayDetection: \"missing object detection\",\n    VideoAbnormalDetection: \"scene change\",\n    FaceDetection: \"face detect\",\n    AudioMutation: \"intensity change\",\n    AudioAnomaly: \"input abnormal\",\n    VideoUnFocus: \"defocus detect\",\n    WanderDetection: \"loitering detection\",\n    RioterDetection: \"People Gathering\",\n    ParkingDetection: \"parking detection\",\n    MoveDetection: \"fast moving\",\n    HeatImagingTemper: \"temperature alarm\"\n};\n// list of available incoming event codes\nconst eventType = (Object.keys(validEvents));\n\n// message bounce \n\n// create varibles for timestamp context stores\n// create camera variable\nconst cameraPx = \"camera_\"; \nvar camera = cameraPx + index + evco + ivsRule; // create camera\n\n\n// retrive timer if value does not exist set at 10000\nvar cameraTest = (context.get(camera || 10000));\n// create current time in ms\nvar aTT = new Date().getTime();\n\n// bounce test  \n// if new time is greater than last camera event\nif (aTT < cameraTest) {\n    var aTTr = \"bounce\";\n// if end of motion/ivs event message\n} else if (action === \"Stop\") {\n    var aTTr = \"Stop\";\n// event is not supported\n} else if (eventType.indexOf(evco) === -1) {\n    var attr = \"event not upported\";\n// if new time is greater than last camera event\n} else {\n    var aTTr = \"continue\";\n    var aTTd = (aTT + 15000); // add delay in milliseconds\n    context.set(camera, aTTd);\n}\n\n// create empty message objects\nvar msg1 = {};\nvar msg2 = {};\nvar msg3 = {};\n\n\n// create message if bounced output 3\nif (aTTr === \"bounce\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr; // output camera # if bounced\n} else if (aTTr === \"Stop\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr;\n} else if (aTTr === \"event not supported\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = evco + \" \" + aTTr;\n} else { \n// create message if passes\n    // phone state  ** used to stop tts while on phone  text still sent\n    const phoneState = global.get('homeassistant.homeAssistant.states[\"sensor.pixel_7_phone_state_2\"].state');\n\n    // create entity type for service call\n    const haDom = \"camera\";  // domain\n    const serv = \"snapshot\"; // service\n    const entityType = \"camera.\"; // same as domain with period\n    // Dauha events\n\n    // load snapshot count \n    var countPx = \"count_\";\n    // build countId for snapshots\n    var countId = countPx + camera;\n    // load current camera count\n    var countCc = context.get(countId) || 100;\n\n    // Build message 1 (msg1)\n\n    // Build entity\n    var cameraEntity = entityType + (cameraName.toLowerCase()).replace(/\\s/g, \"_\") + \"_main\";\n    // convert to lowercase  replace spaces with _   add entity type at begining   add _main to end\n\n    // Text for title and message\n    var mTitle = ((cameraName.toUpperCase()).replace(/XVR /, \"\")).replace(/ FLOOR/, \"\");\n    // convert to upper case  remove XVR and white space from beginning  remove whitespace and FLOOR from end\n    // when present in title\n\n    // resolves event code for message text\n    var mEvent = validEvents[evco];\n\n    var mText = cameraName.replace(/XVR /, \"\");\n\n    var mRule = \"set\";\n\n\n\n\n    // rule 1\n    if (evco === \"CrossRegionDetection\" && (ivsRule === \"first\" || ivsRule === \"garden\" || ivsRule === \"alley\" || ivsRule === \"basement\")) {\n        countCc += 1; // if true add 1 to current count\n        cameraName = ivsRule; // storage folder\n        mTitle = ivsRule.toUpperCase();\n        mRule = \"Rule one\";\n        msg3.payload = mRule;\n\n        // rule else\n    } else {\n        countCc += 1; // if true add 1 to current count \n        mRule = \"Rule else\";\n        msg3.payload = \"else\";\n\n    };\n\n    // message structure\n    msg1.payload = {\n        \"domain\": haDom,\n        \"service\": serv,\n        \"target\": {\n            \"entity_id\": cameraEntity\n        },\n        \"driveFolder\": cameraName, //.replace(/\\s/g, \"_\"), // storage folder\n        \"title\": mTitle,\n        \"event\": mEvent,\n        \"message\": mText,\n        \"count\": countCc,\n        \"rule\": mRule, // this is for troubleshooting\n    };\n\n    // reset current counter  allow 10 snapshots before overwrite\n    if (countCc >= 110) {\n        countCc = 100;\n    }\n\n    // store current counter to counter id\n    context.set(countId, countCc);\n\n    // build tts message and rules **output 2**\n\n\n    // if on phone, dont send tts \n    if (phoneState === \"offhook\" || action === \"Stop\") {\n        msg2 = null;\n    } else if (evco === \"LeftDetection\") {\n        msg2.payload = \"Something is at the mailbox\";\n    } else if (ivsRule === \"ivs\" || evco === \"VideoMotion\") {\n        msg2.payload = ((cameraName.toLowerCase()).replace(/xvr /, \"\")).replace(/ floor/, \"\");\n    } else {\n        msg2.payload = ivsRule;\n    }\n\n    //catch all if text output is null do nothing\n    if (msg1 == null) {\n        msg2 == null;\n    }\n\n};\n\nvar countOutput = (context.get('countOutput' || 1));\n\nif (countOutput == 1) {\n    countOutput = 2;\n    context.set(\"countOutput\", countOutput);\n    return [msg1, null, msg2, msg3];\n    } else {\n    countOutput = 1;\n    context.set(\"countOutput\", countOutput);\n    return [null, msg1, msg2, msg3];\n}\n\n// **msg numbers do not relate to where they go\n// only the message itself \n// return [msg3, msg1, msg2] \n// message 3 to output 1\n// message 1 to output 2\n// message 2 to output 3\n\n",
+        "outputs": 4,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 120,
+        "wires": [
+            [
+                "de7d7fe2b505f313"
+            ],
+            [
+                "c406c2624cc4e6db"
+            ],
+            [
+                "77cce41f3936b0c9"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "b4baf1f03b5c8db3",
+        "type": "api-call-service",
+        "z": "60f2d2277843c698",
+        "name": "send pic text",
+        "server": "6b1110b5.183a4",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "notify",
+        "service": "mobile_app_pixel_7",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\t   \"title\": msg.title,\t   \"message\": msg.event & \" on \" & msg.message,\t   \"data\":{\t       \"image\":\"/media/local/camera/\" & msg.driveFolder & \"/snap\" & msg.count & \".jpg\",\t       \"clickAction\":\"/lovelace-test/markdown\",\t       \"ttl\":0,\t       \"priority\":\"high\"\t   }\t}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "x": 990,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "de7d7fe2b505f313",
+        "type": "api-call-service",
+        "z": "60f2d2277843c698",
+        "name": "take snapshot",
+        "server": "6b1110b5.183a4",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "",
+        "service": "",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"filename\":\"/media/camera/{{payload.driveFolder}}/snap{{payload.count}}.jpg\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [
+            {
+                "property": "title",
+                "propertyType": "msg",
+                "value": "payload.title",
+                "valueType": "msg"
+            },
+            {
+                "property": "driveFolder",
+                "propertyType": "msg",
+                "value": "payload.driveFolder",
+                "valueType": "msg"
+            },
+            {
+                "property": "count",
+                "propertyType": "msg",
+                "value": "payload.count",
+                "valueType": "msg"
+            },
+            {
+                "property": "event",
+                "propertyType": "msg",
+                "value": "payload.event",
+                "valueType": "msg"
+            },
+            {
+                "property": "message",
+                "propertyType": "msg",
+                "value": "payload.message",
+                "valueType": "msg"
+            },
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "data"
+            }
+        ],
+        "queue": "none",
+        "x": 720,
+        "y": 40,
+        "wires": [
+            [
+                "b4baf1f03b5c8db3"
+            ]
+        ]
+    },
+    {
+        "id": "6b1110b5.183a4",
+        "type": "server",
+        "name": "Home Assistant",
+        "version": 5,
+        "addon": true,
+        "rejectUnauthorizedCerts": true,
+        "ha_boolean": "y|yes|true|on|home|open",
+        "connectionDelay": true,
+        "cacheJson": false,
+        "heartbeat": false,
+        "heartbeatInterval": "30",
+        "areaSelector": "friendlyName",
+        "deviceSelector": "friendlyName",
+        "entitySelector": "friendlyName",
+        "statusSeparator": "at: ",
+        "statusYear": "hidden",
+        "statusMonth": "short",
+        "statusDay": "numeric",
+        "statusHourCycle": "h23",
+        "statusTimeFormat": "h:m",
+        "enableGlobalContextStore": true
+    }
+]
