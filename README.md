@@ -12,6 +12,7 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 8. Rate limit by event and camera number.
 9. Retrieve  phone state, bounce tts message if on phone.
 10. Create multiple zone triggers per camera. (See below)
+11. Alternating outputs for faster snapshot storage
 
 ![Screenshot 2024-01-26 025008](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/985907b3-b5df-4988-80ed-6bd070e30632)
 
