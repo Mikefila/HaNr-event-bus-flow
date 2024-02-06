@@ -14,7 +14,8 @@ This flow listens for `dahua_event_recived`. The funcion node manipulates event 
 10. Create multiple zone triggers per camera. (See below)
 11. Alternating outputs for faster snapshot storage
 
-![Screenshot 2024-01-26 025008](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/985907b3-b5df-4988-80ed-6bd070e30632)
+![Screenshot 2024-02-06 105820](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/641dca40-efae-4881-968c-8afc6eb80bb4)
+
 
 Dahua cameras allow the naming of ivs rules. These names are sent with the event. The Dahua intgration (https://github.com/rroller/dahua) combines all ivs rules from a single camera together. 
 
@@ -34,4 +35,4 @@ Using a conditinal statement (see rule 1 in camerafunc.js) allows us to target s
 Dahua cameras offer other information in the event data. Target location and direction of travel among other things. Multiple sample JSON included in flow file.
 
 
-![Screenshot 2024-01-26 190100](https://github.com/Mikefila/HaNr-event-bus-flow/assets/74340408/34e9947a-845f-42c6-9ff6-9af62be333d0)
+
