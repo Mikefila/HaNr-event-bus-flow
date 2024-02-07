@@ -39,35 +39,37 @@ const validEvents = {
 const eventType = (Object.keys(validEvents));
 
 // message bounce 
-
-// create varibles for timestamp context stores
-// create camera variable
-const cameraPx = "camera_"; 
-var camera = cameraPx + index + evco + ivsRule; // create camera
-
-
-// retrive timer if value does not exist set at 10000
-var cameraTest = (context.get(camera || 10000));
-// create current time in ms
-var aTT = new Date().getTime();
-
-// bounce test  
-// if new time is greater than last camera event
-if (aTT < cameraTest) {
-    var aTTr = "bounce";
-// if end of motion/ivs event message
-} else if (action === "Stop") {
-    var aTTr = "Stop";
-// event is not supported
-} else if (eventType.indexOf(evco) === -1) {
-    var attr = "event not upported";
-// if new time is greater than last camera event
+if (evco == undefined) {
+    aTTr = "Stop";
 } else {
-    var aTTr = "continue";
-    var aTTd = (aTT + 15000); // add delay in milliseconds
-    context.set(camera, aTTd);
-}
+    // create varibles for timestamp context stores
+    // create camera variable
+    const cameraPx = "camera_";
+    var camera = cameraPx + index + evco + ivsRule; // create camera
 
+
+    // retrive timer if value does not exist set at 10000
+    var cameraTest = (context.get(camera || 10000));
+    // create current time in ms
+    var aTT = new Date().getTime();
+
+    // bounce test  
+    // if new time is greater than last camera event
+    if (aTT < cameraTest) {
+        var aTTr = "bounce";
+        // if end of motion/ivs event message
+    } else if (action === "Stop") {
+        var aTTr = "Stop";
+        // event is not supported
+    } else if (eventType.indexOf(evco) === -1) {
+        var attr = "event not upported";
+        // if new time is greater than last camera event
+    } else {
+        var aTTr = "pass";
+        var aTTd = (aTT + 30000); // add delay in milliseconds
+        context.set(camera, aTTd);
+    };
+}
 // create empty message objects
 var msg1 = {};
 var msg2 = {};
@@ -87,8 +89,8 @@ if (aTTr === "bounce") {
     msg1 = null;
     msg2 = null;
     msg3.payload = evco + " " + aTTr;
-} else { 
-// create message if passes
+} else {
+    // create message if passes
     // phone state  ** used to stop tts while on phone  text still sent
     const phoneState = global.get('homeassistant.homeAssistant.states["sensor.pixel_7_phone_state_2"].state');
 
@@ -189,13 +191,19 @@ if (aTTr === "bounce") {
 var countOutput = (context.get('countOutput' || 1));
 
 if (countOutput == 1) {
-    countOutput = 2;
+    countOutput += 1;
     context.set("countOutput", countOutput);
     return [msg1, null, msg2, msg3];
-    } else {
+} else {
     countOutput = 1;
     context.set("countOutput", countOutput);
     return [null, msg1, msg2, msg3];
 }
 
+// **msg numbers do not relate to where they go
+// only the message itself
+// return [msg3, msg1, msg2]
+// message 3 to output 1
+// message 1 to output 2
+// message 2 to output 3
 
