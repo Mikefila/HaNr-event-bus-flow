@@ -178,10 +178,10 @@
         "id": "c406c2624cc4e6db",
         "type": "api-call-service",
         "z": "60f2d2277843c698",
-        "name": "take snapshot",
+        "name": "take snapshot 2",
         "server": "6b1110b5.183a4",
         "version": 5,
-        "debugenabled": false,
+        "debugenabled": true,
         "domain": "",
         "service": "",
         "areaId": [],
@@ -230,7 +230,7 @@
             }
         ],
         "queue": "none",
-        "x": 720,
+        "x": 730,
         "y": 100,
         "wires": [
             [
@@ -301,8 +301,8 @@
         "type": "function",
         "z": "60f2d2277843c698",
         "name": "Camera message system",
-        "func": "\n// isolate relevant incoming JSON\ntry {\n    var cameraName = msg.payload.event.DeviceName;\n    var ivsRule = msg.payload.event.data.Name;\n    var evco = msg.payload.event.Code;\n    var action = msg.payload.event.action;\n    var index = msg.payload.event.index;\n} catch {\n    var cameraName = undefined;\n    var ivsRule = undefined;\n    var evco = undefined;\n    var action = undefined;\n    var index = undefined;\n}\n\n// dahua events\nconst validEvents = {\n    VideoMotion: \"motion detection\",\n    VideoLoss: \"video loss detection\",\n    VideoBlind: \"video blind detection\",\n    AlarmLocal: \"alarm detection\",\n    CrossLineDetection: \"tripwire\",\n    CrossRegionDetection: \"intrusion\",\n    LeftDetection: \"abandoned object detection\",\n    TakenAwayDetection: \"missing object detection\",\n    VideoAbnormalDetection: \"scene change\",\n    FaceDetection: \"face detect\",\n    AudioMutation: \"intensity change\",\n    AudioAnomaly: \"input abnormal\",\n    VideoUnFocus: \"defocus detect\",\n    WanderDetection: \"loitering detection\",\n    RioterDetection: \"People Gathering\",\n    ParkingDetection: \"parking detection\",\n    MoveDetection: \"fast moving\",\n    HeatImagingTemper: \"temperature alarm\"\n};\n// list of available incoming event codes\nconst eventType = (Object.keys(validEvents));\n\n// message bounce \n\n// create varibles for timestamp context stores\n// create camera variable\nconst cameraPx = \"camera_\"; \nvar camera = cameraPx + index + evco + ivsRule; // create camera\n\n\n// retrive timer if value does not exist set at 10000\nvar cameraTest = (context.get(camera || 10000));\n// create current time in ms\nvar aTT = new Date().getTime();\n\n// bounce test  \n// if new time is greater than last camera event\nif (aTT < cameraTest) {\n    var aTTr = \"bounce\";\n// if end of motion/ivs event message\n} else if (action === \"Stop\") {\n    var aTTr = \"Stop\";\n// event is not supported\n} else if (eventType.indexOf(evco) === -1) {\n    var attr = \"event not upported\";\n// if new time is greater than last camera event\n} else {\n    var aTTr = \"continue\";\n    var aTTd = (aTT + 15000); // add delay in milliseconds\n    context.set(camera, aTTd);\n}\n\n// create empty message objects\nvar msg1 = {};\nvar msg2 = {};\nvar msg3 = {};\n\n\n// create message if bounced output 3\nif (aTTr === \"bounce\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr; // output camera # if bounced\n} else if (aTTr === \"Stop\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = camera + \" \" + aTTr;\n} else if (aTTr === \"event not supported\") {\n    msg1 = null;\n    msg2 = null;\n    msg3.payload = evco + \" \" + aTTr;\n} else { \n// create message if passes\n    // phone state  ** used to stop tts while on phone  text still sent\n    const phoneState = global.get('homeassistant.homeAssistant.states[\"sensor.pixel_7_phone_state_2\"].state');\n\n    // create entity type for service call\n    const haDom = \"camera\";  // domain\n    const serv = \"snapshot\"; // service\n    const entityType = \"camera.\"; // same as domain with period\n    // Dauha events\n\n    // load snapshot count \n    var countPx = \"count_\";\n    // build countId for snapshots\n    var countId = countPx + camera;\n    // load current camera count\n    var countCc = context.get(countId) || 100;\n\n    // Build message 1 (msg1)\n\n    // Build entity\n    var cameraEntity = entityType + (cameraName.toLowerCase()).replace(/\\s/g, \"_\") + \"_main\";\n    // convert to lowercase  replace spaces with _   add entity type at begining   add _main to end\n\n    // Text for title and message\n    var mTitle = ((cameraName.toUpperCase()).replace(/XVR /, \"\")).replace(/ FLOOR/, \"\");\n    // convert to upper case  remove XVR and white space from beginning  remove whitespace and FLOOR from end\n    // when present in title\n\n    // resolves event code for message text\n    var mEvent = validEvents[evco];\n\n    var mText = cameraName.replace(/XVR /, \"\");\n\n    var mRule = \"set\";\n\n\n\n\n    // rule 1\n    if (evco === \"CrossRegionDetection\" && (ivsRule === \"first\" || ivsRule === \"garden\" || ivsRule === \"alley\" || ivsRule === \"basement\")) {\n        countCc += 1; // if true add 1 to current count\n        cameraName = ivsRule; // storage folder\n        mTitle = ivsRule.toUpperCase();\n        mRule = \"Rule one\";\n        msg3.payload = mRule;\n\n        // rule else\n    } else {\n        countCc += 1; // if true add 1 to current count \n        mRule = \"Rule else\";\n        msg3.payload = \"else\";\n\n    };\n\n    // message structure\n    msg1.payload = {\n        \"domain\": haDom,\n        \"service\": serv,\n        \"target\": {\n            \"entity_id\": cameraEntity\n        },\n        \"driveFolder\": cameraName, //.replace(/\\s/g, \"_\"), // storage folder\n        \"title\": mTitle,\n        \"event\": mEvent,\n        \"message\": mText,\n        \"count\": countCc,\n        \"rule\": mRule, // this is for troubleshooting\n    };\n\n    // reset current counter  allow 10 snapshots before overwrite\n    if (countCc >= 110) {\n        countCc = 100;\n    }\n\n    // store current counter to counter id\n    context.set(countId, countCc);\n\n    // build tts message and rules **output 2**\n\n\n    // if on phone, dont send tts \n    if (phoneState === \"offhook\" || action === \"Stop\") {\n        msg2 = null;\n    } else if (evco === \"LeftDetection\") {\n        msg2.payload = \"Something is at the mailbox\";\n    } else if (ivsRule === \"ivs\" || evco === \"VideoMotion\") {\n        msg2.payload = ((cameraName.toLowerCase()).replace(/xvr /, \"\")).replace(/ floor/, \"\");\n    } else {\n        msg2.payload = ivsRule;\n    }\n\n    //catch all if text output is null do nothing\n    if (msg1 == null) {\n        msg2 == null;\n    }\n\n};\n\nvar countOutput = (context.get('countOutput' || 1));\n\nif (countOutput == 1) {\n    countOutput = 2;\n    context.set(\"countOutput\", countOutput);\n    return [msg1, null, msg2, msg3];\n    } else {\n    countOutput = 1;\n    context.set(\"countOutput\", countOutput);\n    return [null, msg1, msg2, msg3];\n}\n\n// **msg numbers do not relate to where they go\n// only the message itself \n// return [msg3, msg1, msg2] \n// message 3 to output 1\n// message 1 to output 2\n// message 2 to output 3\n\n",
-        "outputs": 4,
+        "func": "\n// isolate relevant incoming JSON\ntry {\n    var cameraName = msg.payload.event.DeviceName;\n    var ivsRule = msg.payload.event.data.Name;\n    var evco = msg.payload.event.Code;\n    var action = msg.payload.event.action;\n    var index = msg.payload.event.index;\n} catch {\n    var cameraName = undefined;\n    var ivsRule = undefined;\n    var evco = undefined;\n    var action = undefined;\n    var index = undefined;\n}\n\n// dahua events\nconst validEvents = {\n    VideoMotion: \"motion detection\",\n    VideoLoss: \"video loss detection\",\n    VideoBlind: \"video blind detection\",\n    AlarmLocal: \"alarm detection\",\n    CrossLineDetection: \"tripwire\",\n    CrossRegionDetection: \"intrusion\",\n    LeftDetection: \"abandoned object detection\",\n    TakenAwayDetection: \"missing object detection\",\n    VideoAbnormalDetection: \"scene change\",\n    FaceDetection: \"face detect\",\n    AudioMutation: \"intensity change\",\n    AudioAnomaly: \"input abnormal\",\n    VideoUnFocus: \"defocus detect\",\n    WanderDetection: \"loitering detection\",\n    RioterDetection: \"People Gathering\",\n    ParkingDetection: \"parking detection\",\n    MoveDetection: \"fast moving\",\n    HeatImagingTemper: \"temperature alarm\"\n};\n// list of available incoming event codes\nconst eventType = (Object.keys(validEvents));\n\n// message bounce \nif (evco == undefined) {\n    aTTr = \"Stop\";\n} else {\n    // create varibles for timestamp context stores\n    // create camera variable\n    const cameraPx = \"camera_\";\n    var camera = cameraPx + index + evco + ivsRule; // create camera\n\n\n    // retrive timer if value does not exist set at 10000\n    var cameraTest = (context.get(camera || 10000));\n    // create current time in ms\n    var aTT = new Date().getTime();\n\n    // bounce test  \n    // if new time is greater than last camera event\n    if (aTT < cameraTest) {\n        var aTTr = \"bounce\";\n        // if end of motion/ivs event message\n    } else if (action === \"Stop\") {\n        var aTTr = \"Stop\";\n        // event is not supported\n    } else if (eventType.indexOf(evco) === -1) {\n        var attr = \"event not upported\";\n        // if new time is greater than last camera event\n    } else {\n        var aTTr = \"pass\";\n        var aTTd = (aTT + 30000); // add delay in milliseconds\n        context.set(camera, aTTd);\n    };\n}\n// create empty message objects\nvar msg1 = {};\nvar msg2 = {};\n//var msg3 = {};\n\n\n// create message if bounced output 3\nif (aTTr === \"bounce\") {\n    msg1 = null;\n    msg2 = null;\n    return [null, null, null];\n    //msg3.payload = camera + \" \" + aTTr; // output camera # if bounced\n} else if (aTTr === \"Stop\") {\n    msg1 = null;\n    msg2 = null;\n    return [null, null, null];\n    //msg3.payload = camera + \" \" + aTTr;\n} else if (aTTr === \"event not supported\") {\n    msg1 = null;\n    msg2 = null;\n    return [null, null, null];\n    //msg3.payload = evco + \" \" + aTTr;\n} else {\n    // create message if passes\n    // phone state  ** used to stop tts while on phone  text still sent\n    const phoneState = global.get('homeassistant.homeAssistant.states[\"sensor.pixel_7_phone_state_2\"].state');\n\n    // create entity type for service call\n    const haDom = \"camera\";  // domain\n    const serv = \"snapshot\"; // service\n    const entityType = \"camera.\"; // same as domain with period\n    // Dauha events\n\n    // load snapshot count \n    var countPx = \"count_\";\n    // build countId for snapshots\n    var countId = countPx + camera;\n    // load current camera count\n    var countCc = context.get(countId) || 100;\n\n    // Build message 1 (msg1)\n\n    // Build entity\n    var cameraEntity = entityType + (cameraName.toLowerCase()).replace(/\\s/g, \"_\") + \"_main\";\n    // convert to lowercase  replace spaces with _   add entity type at begining   add _main to end\n\n    // Text for title and message\n    var mTitle = ((cameraName.toUpperCase()).replace(/XVR /, \"\")).replace(/ FLOOR/, \"\");\n    // convert to upper case  remove XVR and white space from beginning  remove whitespace and FLOOR from end\n    // when present in title\n\n    // resolves event code for message text\n    var mEvent = validEvents[evco];\n\n    var mText = cameraName.replace(/XVR /, \"\");\n\n    var mRule = \"set\";\n\n\n\n\n    // rule 1\n    if (evco === \"CrossRegionDetection\" && (ivsRule === \"first\" || ivsRule === \"garden\" || ivsRule === \"alley\" || ivsRule === \"basement\")) {\n        countCc += 1; // if true add 1 to current count\n        cameraName = ivsRule; // storage folder\n        mTitle = ivsRule.toUpperCase();\n        mRule = \"Rule one\";\n        //msg3.payload = mRule;\n\n        // rule else\n    } else {\n        countCc += 1; // if true add 1 to current count \n        mRule = \"Rule else\";\n        //msg3.payload = \"else\";\n\n    };\n\n    // message structure\n    msg1.payload = {\n        \"domain\": haDom,\n        \"service\": serv,\n        \"target\": {\n            \"entity_id\": cameraEntity\n        },\n        \"driveFolder\": cameraName, //.replace(/\\s/g, \"_\"), // storage folder\n        \"title\": mTitle,\n        \"event\": mEvent,\n        \"message\": mText,\n        \"count\": countCc,\n        \"rule\": mRule, // this is for troubleshooting\n    };\n\n    // reset current counter  allow 10 snapshots before overwrite\n    if (countCc >= 110) {\n        countCc = 100;\n    }\n\n    // store current counter to counter id\n    context.set(countId, countCc);\n\n    // build tts message and rules **output 2**\n\n\n    // if on phone, dont send tts \n    if (phoneState === \"offhook\" || action === \"Stop\") {\n        msg2 = null;\n    } else if (evco === \"LeftDetection\") {\n        msg2.payload = \"Something is at the mailbox\";\n    } else if (ivsRule === \"ivs\" || evco === \"VideoMotion\") {\n        msg2.payload = ((cameraName.toLowerCase()).replace(/xvr /, \"\")).replace(/ floor/, \"\");\n    } else {\n        msg2.payload = ivsRule;\n    }\n\n    //catch all if text output is null do nothing\n    if (msg1 == null) {\n        msg2 == null;\n    }\n\n\n\n    var countOutput = (context.get('countOutput' || 1));\n\n    if (countOutput == 1) {\n        countOutput = 2;\n        context.set(\"countOutput\", countOutput);\n        return [msg1, null, msg2];\n    } else {\n        countOutput = 1;\n        context.set(\"countOutput\", countOutput);\n        return [null, msg1, msg2];\n    };\n}\n// **msg numbers do not relate to where they go\n// only the message itself\n// return [msg3, msg1, msg2]\n// message 3 to output 1\n// message 1 to output 2\n// message 2 to output 3\n\n",
+        "outputs": 3,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
@@ -319,8 +319,7 @@
             ],
             [
                 "77cce41f3936b0c9"
-            ],
-            []
+            ]
         ]
     },
     {
@@ -355,7 +354,7 @@
         "name": "take snapshot",
         "server": "6b1110b5.183a4",
         "version": 5,
-        "debugenabled": false,
+        "debugenabled": true,
         "domain": "",
         "service": "",
         "areaId": [],
@@ -409,6 +408,35 @@
         "wires": [
             [
                 "b4baf1f03b5c8db3"
+            ]
+        ]
+    },
+    {
+        "id": "fa24c991d7b00202",
+        "type": "inject",
+        "z": "60f2d2277843c698",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 340,
+        "y": 340,
+        "wires": [
+            [
+                "45e572d1d77a0cf4"
             ]
         ]
     },
