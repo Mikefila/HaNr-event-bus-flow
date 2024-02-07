@@ -73,22 +73,25 @@ if (evco == undefined) {
 // create empty message objects
 var msg1 = {};
 var msg2 = {};
-var msg3 = {};
+//var msg3 = {};
 
 
 // create message if bounced output 3
 if (aTTr === "bounce") {
     msg1 = null;
     msg2 = null;
-    msg3.payload = camera + " " + aTTr; // output camera # if bounced
+    return [null, null, null];
+    //msg3.payload = camera + " " + aTTr; // output camera # if bounced
 } else if (aTTr === "Stop") {
     msg1 = null;
     msg2 = null;
-    msg3.payload = camera + " " + aTTr;
+    return [null, null, null];
+    //msg3.payload = camera + " " + aTTr;
 } else if (aTTr === "event not supported") {
     msg1 = null;
     msg2 = null;
-    msg3.payload = evco + " " + aTTr;
+    return [null, null, null];
+    //msg3.payload = evco + " " + aTTr;
 } else {
     // create message if passes
     // phone state  ** used to stop tts while on phone  text still sent
@@ -134,13 +137,13 @@ if (aTTr === "bounce") {
         cameraName = ivsRule; // storage folder
         mTitle = ivsRule.toUpperCase();
         mRule = "Rule one";
-        msg3.payload = mRule;
+        //msg3.payload = mRule;
 
         // rule else
     } else {
         countCc += 1; // if true add 1 to current count 
         mRule = "Rule else";
-        msg3.payload = "else";
+        //msg3.payload = "else";
 
     };
 
@@ -186,20 +189,20 @@ if (aTTr === "bounce") {
         msg2 == null;
     }
 
-};
 
-var countOutput = (context.get('countOutput' || 1));
 
-if (countOutput == 1) {
-    countOutput += 1;
-    context.set("countOutput", countOutput);
-    return [msg1, null, msg2, msg3];
-} else {
-    countOutput = 1;
-    context.set("countOutput", countOutput);
-    return [null, msg1, msg2, msg3];
+    var countOutput = (context.get('countOutput' || 1));
+
+    if (countOutput == 1) {
+        countOutput = 2;
+        context.set("countOutput", countOutput);
+        return [msg1, null, msg2];
+    } else {
+        countOutput = 1;
+        context.set("countOutput", countOutput);
+        return [null, msg1, msg2];
+    };
 }
-
 // **msg numbers do not relate to where they go
 // only the message itself
 // return [msg3, msg1, msg2]
